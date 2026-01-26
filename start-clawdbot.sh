@@ -104,4 +104,6 @@ echo "Gateway will be available on port 18789"
 
 # Set API keys as environment variables (clawdbot reads them from env)
 # Start the gateway (blocking)
-exec clawdbot gateway --port 18789 --verbose --allow-unconfigured --bind lan
+# Generate a random token if not provided
+GATEWAY_TOKEN="${CLAWDBOT_GATEWAY_TOKEN:-sandbox-$(date +%s)}"
+exec clawdbot gateway --port 18789 --verbose --allow-unconfigured --bind lan --token "$GATEWAY_TOKEN"
