@@ -58,17 +58,12 @@ config.channels = config.channels || {};
 config.gateway.port = 18789;
 config.gateway.mode = 'local';
 
-// Set gateway token if provided
+// Set gateway token if provided (use auth.token format)
 if (process.env.CLAWDBOT_GATEWAY_TOKEN) {
     config.gateway.auth = config.gateway.auth || {};
     config.gateway.auth.token = process.env.CLAWDBOT_GATEWAY_TOKEN;
     config.gateway.auth.mode = 'token';  // Token-only auth (no device pairing)
-    config.gateway.auth.requirePairing = false;
 }
-
-// Always disable pairing requirement for sandbox deployment
-config.gateway.auth = config.gateway.auth || {};
-config.gateway.auth.requirePairing = false;
 
 // Allow insecure auth ONLY for local dev (when CLAWDBOT_DEV_MODE=true)
 if (process.env.CLAWDBOT_DEV_MODE === 'true') {
@@ -128,4 +123,4 @@ fi
 # CLAWDBOT_DEV_MODE only controls allowInsecureAuth, not binding
 BIND_MODE="lan"
 echo "Dev mode: ${CLAWDBOT_DEV_MODE:-false}, Bind mode: $BIND_MODE"
-exec clawdbot gateway --port 18789 --verbose --allow-unconfigured --bind "$BIND_MODE" --auth token --token "$GATEWAY_TOKEN"
+exec clawdbot gateway --port 18789 --verbose --allow-unconfigured --bind "$BIND_MODE" --token "$GATEWAY_TOKEN"

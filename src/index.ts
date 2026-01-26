@@ -226,19 +226,6 @@ async function proxyToClawdbot(
 export default {
   async fetch(request: Request, env: ClawdbotEnv): Promise<Response> {
     const url = new URL(request.url);
-    
-    // Redirect HTTP to HTTPS in production (not local dev)
-    // Check CF-Visitor header for original protocol since Workers always see HTTPS
-    const cfVisitor = request.headers.get('CF-Visitor');
-    const isHttpRequest = cfVisitor && JSON.parse(cfVisitor).scheme === 'http';
-    const isProduction = url.hostname.includes('workers.dev') || !url.hostname.includes('localhost');
-    
-    if (isHttpRequest && isProduction) {
-      const httpsUrl = new URL(request.url);
-      httpsUrl.protocol = 'https:';
-      return Response.redirect(httpsUrl.toString(), 301);
-    }
-
     const sandbox = getSandbox(env.Sandbox, 'clawdbot');
 
     // Health check endpoint (before starting clawdbot)
