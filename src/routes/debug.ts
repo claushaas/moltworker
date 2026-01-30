@@ -180,6 +180,25 @@ debug.post('/restart-gateway', async (c) => {
   });
 });
 
+// POST /debug/reset-sandbox - Fully destroy and recreate the sandbox container.
+// Useful if the sandbox shell dies and commands can't be executed.
+debug.post('/reset-sandbox', async (c) => {
+  const sandbox = c.get('sandbox');
+  try {
+    await sandbox.destroy();
+  } catch (e) {
+    console.log('Failed to destroy sandbox (continuing):', e);
+  }
+
+  const proc = await ensureMoltbotGateway(sandbox, c.env);
+  return c.json({
+    ok: true,
+    restarted: true,
+    processId: proc.id,
+    status: proc.status,
+  });
+});
+
 // POST /debug/kill - Kill runaway processes inside the sandbox.
 // Useful when the shell dies due to too many concurrent processes.
 // Query params:

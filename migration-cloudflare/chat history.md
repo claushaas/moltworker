@@ -1,3 +1,5 @@
+<!-- markdownlint-disable -->
+
 que legal, hoje os crons funcionaram. agora vamos retomar as configurações do moltbot no worker. O agente ta funcionando. Quais os próximos passos
 
 You
