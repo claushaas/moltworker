@@ -31,6 +31,8 @@ import { publicRoutes, api, adminUi, debug, cdp, memory } from './routes';
 import loadingPageHtml from './assets/loading.html';
 import configErrorHtml from './assets/config-error.html';
 
+const CONTROL_UI_TOKEN_STORAGE_KEY = 'clawdbot.control.settings.v1';
+
 /**
  * Transform error messages from the gateway to be more user-friendly.
  */
@@ -44,6 +46,72 @@ function transformErrorMessage(message: string, host: string): string {
   }
   
   return message;
+}
+
+function buildControlUiTokenScript(token: string): string {
+  const tokenJson = JSON.stringify(token);
+  return [
+    '<script>',
+    '(() => {',
+    `  const key = ${JSON.stringify(CONTROL_UI_TOKEN_STORAGE_KEY)};`,
+    '  try {',
+    '    const raw = localStorage.getItem(key);',
+    '    const data = raw ? JSON.parse(raw) : {};',
+    `    if (data.token !== ${tokenJson}) {`,
+    `      data.token = ${tokenJson};`,
+    '      localStorage.setItem(key, JSON.stringify(data));',
+    '    }',
+    '  } catch (_err) {}',
+    '})();',
+    '</script>',
+  ].join('');
+}
+
+async function maybeInjectControlUiToken(
+  request: Request,
+  response: Response,
+  token: string | undefined
+): Promise<Response> {
+  if (!token) {
+    return response;
+  }
+
+  if (request.method !== 'GET') {
+    return response;
+  }
+
+  const accept = request.headers.get('Accept') || '';
+  if (!accept.includes('text/html')) {
+    return response;
+  }
+
+  const contentType = response.headers.get('content-type') || '';
+  if (!contentType.includes('text/html')) {
+    return response;
+  }
+
+  const html = await response.text();
+  const injection = buildControlUiTokenScript(token);
+  let updatedHtml = html;
+
+  if (html.includes('</head>')) {
+    updatedHtml = html.replace('</head>', `${injection}</head>`);
+  } else if (html.includes('</body>')) {
+    updatedHtml = html.replace('</body>', `${injection}</body>`);
+  } else {
+    updatedHtml = `${html}\n${injection}`;
+  }
+
+  const newHeaders = new Headers(response.headers);
+  const byteLength = new TextEncoder().encode(updatedHtml).length;
+  newHeaders.set('content-length', String(byteLength));
+  newHeaders.set('X-Control-Ui-Token', 'injected');
+
+  return new Response(updatedHtml, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: newHeaders,
+  });
 }
 
 export { Sandbox };
@@ -369,13 +437,19 @@ app.all('*', async (c) => {
   console.log('[HTTP] Response status:', httpResponse.status);
   
   // Add debug header to verify worker handled the request
-  const newHeaders = new Headers(httpResponse.headers);
+  let response = await maybeInjectControlUiToken(
+    request,
+    httpResponse,
+    c.env.MOLTBOT_GATEWAY_TOKEN
+  );
+
+  const newHeaders = new Headers(response.headers);
   newHeaders.set('X-Worker-Debug', 'proxy-to-moltbot');
   newHeaders.set('X-Debug-Path', url.pathname);
   
-  return new Response(httpResponse.body, {
-    status: httpResponse.status,
-    statusText: httpResponse.statusText,
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
     headers: newHeaders,
   });
 });

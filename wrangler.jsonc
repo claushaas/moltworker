@@ -114,6 +114,7 @@
   // - SLACK_BOT_TOKEN: (optional) Slack bot token
   // - SLACK_APP_TOKEN: (optional) Slack app token
   // - MOLTBOT_GATEWAY_TOKEN: (optional) Token to protect gateway access, if unset device pairing will be used
+  // - CONTROL_UI_TOKEN_ONLY: (optional) Set to "true" to skip Control UI pairing (token-only)
   // - CDP_SECRET: (optional) Shared secret for /cdp endpoint authentication
   // - MEMORY_API_URL: (optional) Override memory API URL (use workers.dev to bypass Access)
   // - MEMORY_API_SECRET: (optional) Shared secret for memory plugin HMAC auth

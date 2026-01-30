@@ -187,6 +187,11 @@ if (process.env.CLAWDBOT_DEV_MODE === 'true') {
     config.gateway.controlUi = config.gateway.controlUi || {};
     config.gateway.controlUi.allowInsecureAuth = true;
 }
+// Token-only Control UI (skip pairing), still requires gateway token
+if (process.env.CONTROL_UI_TOKEN_ONLY === 'true') {
+    config.gateway.controlUi = config.gateway.controlUi || {};
+    config.gateway.controlUi.allowInsecureAuth = true;
+}
 
 // Browser profile for Cloudflare Browser Rendering (CDP)
 // Requires CDP_SECRET + WORKER_URL so the gateway can connect back to the worker /cdp endpoint.
