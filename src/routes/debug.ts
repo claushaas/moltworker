@@ -180,6 +180,46 @@ debug.post('/restart-gateway', async (c) => {
   });
 });
 
+// POST /debug/kill - Kill runaway processes inside the sandbox.
+// Useful when the shell dies due to too many concurrent processes.
+// Query params:
+//  - match: substring to match in command (optional)
+//  - keepGateway: 'true' to avoid killing the gateway/start-moltbot processes (default true)
+debug.post('/kill', async (c) => {
+  const sandbox = c.get('sandbox');
+  const match = (c.req.query('match') || '').trim();
+  const keepGateway = (c.req.query('keepGateway') || 'true') !== 'false';
+
+  const processes = await sandbox.listProcesses();
+  const targets = processes.filter(p => {
+    if (p.status !== 'running' && p.status !== 'starting') return false;
+    if (keepGateway && (p.command.includes('start-moltbot.sh') || p.command.includes('clawdbot gateway'))) {
+      return false;
+    }
+    if (!match) return true;
+    return p.command.includes(match);
+  });
+
+  const results: Array<{ id: string; command: string; killed: boolean; error?: string }> = [];
+  for (const p of targets) {
+    try {
+      await p.kill();
+      results.push({ id: p.id, command: p.command, killed: true });
+    } catch (e) {
+      results.push({ id: p.id, command: p.command, killed: false, error: e instanceof Error ? e.message : String(e) });
+    }
+  }
+
+  return c.json({
+    ok: true,
+    match: match || null,
+    keepGateway,
+    killed: results.filter(r => r.killed).length,
+    attempted: results.length,
+    results,
+  });
+});
+
 // GET /debug/logs - Returns container logs for debugging
 debug.get('/logs', async (c) => {
   const sandbox = c.get('sandbox');
