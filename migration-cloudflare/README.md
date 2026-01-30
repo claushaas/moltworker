@@ -433,10 +433,10 @@ node scripts/embed_and_upsert_vectorize.js \
 ## [X] 4.2 Hardening (antes do bot oficial)
 
 Checklist:
-- [ ] secrets no Cloudflare (nada no repo)
-- [ ] validação do webhook
-- [ ] rate limiting
-- [ ] logs sem PII/tokens
+- [X] secrets no Cloudflare (nada no repo)
+- [X] validação do webhook
+- [X] rate limiting
+- [X] logs sem PII/tokens
 
 **Evidência:**
 - `evidence/11_security_hardening.md`
