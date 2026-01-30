@@ -106,11 +106,11 @@ sudo cat /etc/crontab 2>/dev/null || true
 **Onde:** Cloudflare Dashboard
 
 ### 1.1.1 Pré-requisitos (Cloudflare)
-- [ ] Você tem uma conta Cloudflare com:
+- [X] Você tem uma conta Cloudflare com:
   - Workers habilitado
   - D1 habilitado
   - Vectorize habilitado
-- [ ] Você sabe o **Account ID** e **zone** (se usar domínio próprio).
+- [X] Você sabe o **Account ID** e **zone** (se usar domínio próprio).
 
 ### 1.1.2 Criar D1 (DEV)
 **O que é D1:** SQLite gerenciado (ótimo para texto + metadados). Vai ser a fonte de verdade.
@@ -274,7 +274,7 @@ curl -i https://<seu-worker>.<seu-subdominio>.workers.dev/health
 
 > Fonte confirmada: `~/.clawdbot/memory/main.sqlite`
 
-## [ ] 2.1 Inspecionar tabelas e schema
+## [X] 2.1 Inspecionar tabelas e schema
 
 **Por quê:** não assumir schema; exportar apenas o necessário.
 
@@ -303,7 +303,7 @@ sqlite3 ~/.clawdbot/memory/main.sqlite '.schema' | head -n 200
 
 # FASE 2.2 — Schema alvo no D1 (DEV)
 
-## [ ] 2.2 Aplicar schema no D1
+## [X] 2.2 Aplicar schema no D1
 
 **Por quê:** padronizar memória no cloud.
 
@@ -328,7 +328,7 @@ wrangler d1 execute bb_memory_dev --file=./migration-cloudflare/artifacts/d1_sch
 
 # FASE 2.3 — Exportar SQLite -> JSONL
 
-## [ ] 2.3 Exportar JSONL
+## [X] 2.3 Exportar JSONL
 
 **Por quê:** JSONL é auditável, reprocessável e evita depender do schema interno do Clawdbot.
 
@@ -358,7 +358,7 @@ ls -lh artifacts/memory_export.jsonl
 
 # FASE 3 — Importar no D1 e indexar Vectorize
 
-## [ ] 3.1 Importar JSONL -> D1
+## [X] 3.1 Importar JSONL -> D1
 
 **Quem:** Bb (script), Claus (executa)
 
@@ -382,7 +382,7 @@ wrangler d1 execute bb_memory_dev --command "SELECT COUNT(*) AS n FROM messages;
 **Evidência:**
 - `evidence/08_import_d1.md`
 
-## [ ] 3.2 Gerar embeddings e upsert no Vectorize
+## [X] 3.2 Gerar embeddings e upsert no Vectorize
 
 **Quem:** Bb (script), Claus (executa)
 
@@ -407,7 +407,7 @@ node scripts/embed_and_upsert_vectorize.js \
 
 # FASE 4 — Telegram DEV bot E2E (Worker)
 
-## [ ] 4.1 Implementar webhook Telegram no Worker
+## [X] 4.1 Implementar webhook Telegram no Worker
 
 **Quem:** Bb (código), Claus (deploy)
 
@@ -430,7 +430,7 @@ node scripts/embed_and_upsert_vectorize.js \
 **Evidência:**
 - `evidence/10_telegram_e2e.md`
 
-## [ ] 4.2 Hardening (antes do bot oficial)
+## [X] 4.2 Hardening (antes do bot oficial)
 
 Checklist:
 - [ ] secrets no Cloudflare (nada no repo)

@@ -159,6 +159,14 @@ config.agents.defaults.model = config.agents.defaults.model || {};
 config.gateway = config.gateway || {};
 config.channels = config.channels || {};
 
+// Memory behavior: prefer D1 + Vectorize, avoid local file-based memory
+config.agents.defaults.systemPrompt = [
+    'Memory policy:',
+    '- Use D1 + Vectorize memory (memory_store/memory_recall) for all long-term memory.',
+    '- Do not create or update local memory files (e.g., MEMORY.md or memory/*.md).',
+    '- If asked to "save/remember", store via memory_store.',
+].join('\n');
+
 // Clean up any broken anthropic provider config from previous runs
 // (older versions didn't include required 'name' field)
 if (config.models?.providers?.anthropic?.models) {

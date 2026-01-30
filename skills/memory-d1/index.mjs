@@ -1,7 +1,7 @@
 import { Type } from "@sinclair/typebox";
 import { createHmac } from "node:crypto";
 
-const MEMORY_CATEGORIES = ["profile", "preference", "project", "security", "other"];
+const MEMORY_CATEGORIES = ["profile", "preference", "project", "telos", "security", "other"];
 
 const memoryD1Plugin = {
   id: "memory-d1",
@@ -213,27 +213,20 @@ const memoryD1Plugin = {
   },
 };
 
-const MEMORY_TRIGGERS = [
-  /remember/i,
-  /prefer|like|love|hate|want|need/i,
-  /always|never|important/i,
-  /password|token|secret/i,
-  /email/i,
-];
+const MEMORY_EXCLUDE_TRIGGERS = [/password|token|secret/i, /email/i];
 
 function shouldCapture(text) {
-  if (!text || text.length < 10 || text.length > 500) return false;
+  if (!text || text.length < 10) return false;
   if (text.includes("<relevant-memories>")) return false;
   if (text.startsWith("<") && text.includes("</")) return false;
-  const emojiCount = (text.match(/[\u{1F300}-\u{1F9FF}]/gu) || []).length;
-  if (emojiCount > 3) return false;
-  return MEMORY_TRIGGERS.some((r) => r.test(text));
+  return !MEMORY_EXCLUDE_TRIGGERS.some((r) => r.test(text));
 }
 
 function detectCategory(text) {
   if (/password|token|secret/i.test(text)) return "security";
   if (/prefer|like|love|hate|want|need/i.test(text)) return "preference";
   if (/project|repo|deploy|worker|cloudflare/i.test(text)) return "project";
+  if (/telos/i.test(text)) return "telos";
   if (/i am|meu nome|my name/i.test(text)) return "profile";
   return "other";
 }
