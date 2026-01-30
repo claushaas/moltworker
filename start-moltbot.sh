@@ -182,6 +182,19 @@ if (process.env.CLAWDBOT_DEV_MODE === 'true') {
     config.gateway.controlUi.allowInsecureAuth = true;
 }
 
+// Browser profile for Cloudflare Browser Rendering (CDP)
+// Requires CDP_SECRET + WORKER_URL so the gateway can connect back to the worker /cdp endpoint.
+if (process.env.CDP_SECRET && process.env.WORKER_URL) {
+    config.browser = config.browser || {};
+    config.browser.profiles = config.browser.profiles || {};
+
+    const base = String(process.env.WORKER_URL).replace(/\/$/, '');
+    // Do NOT log CDP_SECRET
+    config.browser.profiles.cloudflare = {
+        cdpUrl: `${base}/cdp?secret=${encodeURIComponent(process.env.CDP_SECRET)}`
+    };
+}
+
 // Telegram configuration
 if (process.env.TELEGRAM_BOT_TOKEN) {
     config.channels.telegram = config.channels.telegram || {};
