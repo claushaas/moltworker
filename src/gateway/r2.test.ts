@@ -88,17 +88,18 @@ describe('mountR2Storage', () => {
       );
     });
 
-    it('returns true immediately when bucket is already mounted', async () => {
+    it('returns true when bucket is already mounted (mountBucket reports already mounted)', async () => {
       const { sandbox, mountBucketMock } = createMockSandbox({ mounted: true });
+      // Simulate Cloudflare reporting an "already mounted" style error
+      mountBucketMock.mockRejectedValueOnce(new Error('already mounted'));
       const env = createMockEnvWithR2();
 
       const result = await mountR2Storage(sandbox, env);
 
       expect(result).toBe(true);
-      expect(mountBucketMock).not.toHaveBeenCalled();
+      expect(mountBucketMock).toHaveBeenCalledTimes(1);
       expect(console.log).toHaveBeenCalledWith(
-        'R2 bucket already mounted at',
-        '/data/moltbot'
+        'R2 appears to be already mounted (treating as success)'
       );
     });
 
@@ -133,20 +134,18 @@ describe('mountR2Storage', () => {
       );
     });
 
-    it('returns true if mount fails but check shows it is actually mounted', async () => {
-      const { sandbox, mountBucketMock, startProcessMock } = createMockSandbox();
-      startProcessMock
-        .mockResolvedValueOnce(createMockProcess(''))
-        .mockResolvedValueOnce(createMockProcess('s3fs on /data/moltbot type fuse.s3fs\n'));
-      
-      mountBucketMock.mockRejectedValue(new Error('Transient error'));
-      
-      const env = createMockEnvWithR2();
+    it('returns false when mountBucket throws and it is not an already-mounted error', async () => {
+      const { sandbox, mountBucketMock } = createMockSandbox({ mounted: false });
+      mountBucketMock.mockRejectedValueOnce(new Error('Transient error'));
 
+      const env = createMockEnvWithR2();
       const result = await mountR2Storage(sandbox, env);
 
-      expect(result).toBe(true);
-      expect(console.log).toHaveBeenCalledWith('R2 bucket is mounted despite error');
+      expect(result).toBe(false);
+      expect(console.error).toHaveBeenCalledWith(
+        'Failed to mount R2 bucket:',
+        expect.any(Error)
+      );
     });
   });
 });

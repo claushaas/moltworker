@@ -3,26 +3,15 @@ import type { MoltbotEnv } from '../types';
 import { R2_MOUNT_PATH, R2_BUCKET_NAME } from '../config';
 
 /**
- * Check if R2 is already mounted by looking at the mount table
+ * NOTE: Avoid spawning shell processes to check mount state.
+ * In some sandbox conditions, short-lived commands (like `mount | grep ...`) can pile up
+ * and cause the shell/session to die.
+ *
+ * We instead rely on mountBucket() being idempotent-ish and treat "already mounted" as success.
  */
-async function isR2Mounted(sandbox: Sandbox): Promise<boolean> {
-  try {
-    const proc = await sandbox.startProcess(`mount | grep "s3fs on ${R2_MOUNT_PATH}"`);
-    // Wait for the command to complete
-    let attempts = 0;
-    while (proc.status === 'running' && attempts < 10) {
-      await new Promise(r => setTimeout(r, 200));
-      attempts++;
-    }
-    const logs = await proc.getLogs();
-    // If stdout has content, the mount exists
-    const mounted = !!(logs.stdout && logs.stdout.includes('s3fs'));
-    console.log('isR2Mounted check:', mounted, 'stdout:', logs.stdout?.slice(0, 100));
-    return mounted;
-  } catch (err) {
-    console.log('isR2Mounted error:', err);
-    return false;
-  }
+function isAlreadyMountedError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return /already mounted|mountpoint|exists|busy|EEXIST/i.test(msg);
 }
 
 /**
@@ -39,11 +28,8 @@ export async function mountR2Storage(sandbox: Sandbox, env: MoltbotEnv): Promise
     return false;
   }
 
-  // Check if already mounted first - this avoids errors and is faster
-  if (await isR2Mounted(sandbox)) {
-    console.log('R2 bucket already mounted at', R2_MOUNT_PATH);
-    return true;
-  }
+  // Do not run shell checks here; they can overload the sandbox.
+  // We'll attempt to mount and interpret "already mounted" as success.
 
   try {
     console.log('Mounting R2 bucket at', R2_MOUNT_PATH);
@@ -60,13 +46,12 @@ export async function mountR2Storage(sandbox: Sandbox, env: MoltbotEnv): Promise
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);
     console.log('R2 mount error:', errorMessage);
-    
-    // Check again if it's mounted - the error might be misleading
-    if (await isR2Mounted(sandbox)) {
-      console.log('R2 bucket is mounted despite error');
+
+    if (isAlreadyMountedError(err)) {
+      console.log('R2 appears to be already mounted (treating as success)');
       return true;
     }
-    
+
     // Don't fail if mounting fails - moltbot can still run without persistent storage
     console.error('Failed to mount R2 bucket:', err);
     return false;
