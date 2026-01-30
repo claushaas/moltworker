@@ -133,7 +133,7 @@ fi
 # ============================================================
 # UPDATE CONFIG FROM ENVIRONMENT VARIABLES
 # ============================================================
-node << EOFNODE
+node << 'EOFNODE'
 const fs = require('fs');
 
 const configPath = '/root/.clawdbot/clawdbot.json';
@@ -208,40 +208,36 @@ if (process.env.SLACK_BOT_TOKEN && process.env.SLACK_APP_TOKEN) {
     config.channels.slack.enabled = true;
 }
 
-// Base URL override (e.g., for Cloudflare AI Gateway)
-// Usage: Set AI_GATEWAY_BASE_URL or ANTHROPIC_BASE_URL to your endpoint like:
-//   https://gateway.ai.cloudflare.com/v1/{account_id}/{gateway_id}/anthropic
-//   https://gateway.ai.cloudflare.com/v1/{account_id}/{gateway_id}/openai
-const baseUrl = process.env.AI_GATEWAY_BASE_URL || process.env.ANTHROPIC_BASE_URL || '';
-const isOpenAI = baseUrl.endsWith('/openai');
+// Provider configuration
+// If OPENAI_API_KEY is set, prefer direct OpenAI (simpler than AI Gateway).
+const hasOpenAI = !!process.env.OPENAI_API_KEY;
+const anthropicBaseUrl = process.env.ANTHROPIC_BASE_URL || '';
 
-if (isOpenAI) {
-    // Create custom openai provider config with baseUrl override
-    // Omit apiKey so moltbot falls back to OPENAI_API_KEY env var
-    console.log('Configuring OpenAI provider with base URL:', baseUrl);
+if (hasOpenAI) {
+    console.log('Configuring OpenAI provider (direct)');
     config.models = config.models || {};
     config.models.providers = config.models.providers || {};
+
     config.models.providers.openai = {
-        baseUrl: baseUrl,
+        baseUrl: 'https://api.openai.com/v1',
         api: 'openai-responses',
+        apiKey: process.env.OPENAI_API_KEY,
         models: [
-            { id: 'gpt-5.2', name: 'GPT-5.2', contextWindow: 200000 },
-            { id: 'gpt-5', name: 'GPT-5', contextWindow: 200000 },
-            { id: 'gpt-4.5-preview', name: 'GPT-4.5 Preview', contextWindow: 128000 },
+            { id: 'openai/gpt-5', name: 'GPT-5', contextWindow: 200000 },
+            { id: 'openai/gpt-4o', name: 'GPT-4o', contextWindow: 128000 },
         ]
     };
-    // Add models to the allowlist so they appear in /models
-    config.agents.defaults.models = config.agents.defaults.models || {};
-    config.agents.defaults.models['openai/gpt-5.2'] = { alias: 'GPT-5.2' };
+
+    config.agents.defaults.models = {};
     config.agents.defaults.models['openai/gpt-5'] = { alias: 'GPT-5' };
-    config.agents.defaults.models['openai/gpt-4.5-preview'] = { alias: 'GPT-4.5' };
-    config.agents.defaults.model.primary = 'openai/gpt-5.2';
-} else if (baseUrl) {
-    console.log('Configuring Anthropic provider with base URL:', baseUrl);
+    config.agents.defaults.models['openai/gpt-4o'] = { alias: 'GPT-4o' };
+    config.agents.defaults.model.primary = 'openai/gpt-5';
+} else if (anthropicBaseUrl) {
+    console.log('Configuring Anthropic provider with base URL:', anthropicBaseUrl);
     config.models = config.models || {};
     config.models.providers = config.models.providers || {};
     const providerConfig = {
-        baseUrl: baseUrl,
+        baseUrl: anthropicBaseUrl,
         api: 'anthropic-messages',
         models: [
             { id: 'claude-opus-4-5-20251101', name: 'Claude Opus 4.5', contextWindow: 200000 },
@@ -249,26 +245,42 @@ if (isOpenAI) {
             { id: 'claude-haiku-4-5-20251001', name: 'Claude Haiku 4.5', contextWindow: 200000 },
         ]
     };
-    // Include API key in provider config if set (required when using custom baseUrl)
     if (process.env.ANTHROPIC_API_KEY) {
         providerConfig.apiKey = process.env.ANTHROPIC_API_KEY;
     }
     config.models.providers.anthropic = providerConfig;
-    // Add models to the allowlist so they appear in /models
     config.agents.defaults.models = config.agents.defaults.models || {};
     config.agents.defaults.models['anthropic/claude-opus-4-5-20251101'] = { alias: 'Opus 4.5' };
     config.agents.defaults.models['anthropic/claude-sonnet-4-5-20250929'] = { alias: 'Sonnet 4.5' };
     config.agents.defaults.models['anthropic/claude-haiku-4-5-20251001'] = { alias: 'Haiku 4.5' };
     config.agents.defaults.model.primary = 'anthropic/claude-opus-4-5-20251101';
 } else {
-    // Default to Anthropic without custom base URL (uses built-in pi-ai catalog)
+    // Fallback: require at least one provider key
+    console.log('No OPENAI_API_KEY set; falling back to Anthropic defaults');
     config.agents.defaults.model.primary = 'anthropic/claude-opus-4-5';
 }
 
 // Write updated config
 fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
 console.log('Configuration updated successfully');
-console.log('Config:', JSON.stringify(config, null, 2));
+
+// Log a redacted copy (never print secrets)
+const redacted = JSON.parse(JSON.stringify(config));
+try {
+    if (redacted?.models?.providers) {
+        for (const k of Object.keys(redacted.models.providers)) {
+            if (redacted.models.providers[k]?.apiKey) redacted.models.providers[k].apiKey = '***redacted***';
+        }
+    }
+    if (redacted?.gateway?.auth?.token) redacted.gateway.auth.token = '***redacted***';
+    if (redacted?.channels?.telegram?.botToken) redacted.channels.telegram.botToken = '***redacted***';
+    if (redacted?.channels?.discord?.token) redacted.channels.discord.token = '***redacted***';
+    if (redacted?.channels?.slack?.botToken) redacted.channels.slack.botToken = '***redacted***';
+    if (redacted?.channels?.slack?.appToken) redacted.channels.slack.appToken = '***redacted***';
+} catch (e) {
+    // ignore redaction errors
+}
+console.log('Config (redacted):', JSON.stringify(redacted, null, 2));
 EOFNODE
 
 # ============================================================

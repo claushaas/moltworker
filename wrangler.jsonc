@@ -1,8 +1,12 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "moltbot-sandbox",
+  "name": "bb-worker-dev",
   "main": "src/index.ts",
   "compatibility_date": "2025-05-06",
+
+  "vars": {
+    "DEBUG_ROUTES": "true"
+  },
   "compatibility_flags": ["nodejs_compat"],
   "observability": {
     "enabled": true,
@@ -59,9 +63,37 @@
   "r2_buckets": [
     {
       "binding": "MOLTBOT_BUCKET",
-      "bucket_name": "moltbot-data",
+      "bucket_name": "bb-artifacts-dev",
     },
   ],
+
+  // D1: source of truth for memory (chunks + metadata)
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "bb_memory_dev",
+      "database_id": "c762cadf-c23f-4393-91a5-62ae06916566"
+    }
+  ],
+
+  // Vectorize: semantic index for memory
+  "vectorize": [
+    {
+      "binding": "VECTORIZE",
+      "index_name": "bb_memory_vec_dev"
+    }
+  ],
+
+  // Secrets Store (Cloudflare) bindings
+  // NOTE: this binds the secret from the Secrets Store into env.AI_GATEWAY_API_KEY
+  "secrets_store_secrets": [
+    {
+      "binding": "OPENAI_API_KEY",
+      "store_id": "1032bd11a5b94de788001c394f9a6b29",
+      "secret_name": "OPENAI_API_KEY"
+    }
+  ],
+
   // Cron trigger to sync moltbot data to R2 every 5 minutes
   "triggers": {
     "crons": ["*/5 * * * *"],

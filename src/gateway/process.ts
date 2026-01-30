@@ -78,7 +78,7 @@ export async function ensureMoltbotGateway(sandbox: Sandbox, env: MoltbotEnv): P
 
   // Start a new Moltbot gateway
   console.log('Starting new Moltbot gateway...');
-  const envVars = buildEnvVars(env);
+  const envVars = await buildEnvVars(env);
   const command = '/usr/local/bin/start-moltbot.sh';
 
   console.log('Starting process with command:', command);

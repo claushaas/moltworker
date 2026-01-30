@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import type { AppEnv } from '../types';
-import { findExistingMoltbotProcess } from '../gateway';
+import { ensureMoltbotGateway, findExistingMoltbotProcess } from '../gateway';
+import { aigProbe } from './aig-probe';
 
 /**
  * Debug routes for inspecting container state
@@ -154,6 +155,31 @@ debug.get('/cli', async (c) => {
   }
 });
 
+// POST /debug/restart-gateway - Kill and restart the gateway process (useful after config changes)
+debug.post('/restart-gateway', async (c) => {
+  const sandbox = c.get('sandbox');
+
+  const existing = await findExistingMoltbotProcess(sandbox);
+  if (existing) {
+    try {
+      await existing.kill();
+    } catch (e) {
+      // ignore kill errors
+      console.log('Failed to kill existing gateway process (continuing):', e);
+    }
+  }
+
+  // Ensure it comes back
+  const proc = await ensureMoltbotGateway(sandbox, c.env);
+
+  return c.json({
+    ok: true,
+    killed: !!existing,
+    processId: proc.id,
+    status: proc.status,
+  });
+});
+
 // GET /debug/logs - Returns container logs for debugging
 debug.get('/logs', async (c) => {
   const sandbox = c.get('sandbox');
@@ -202,6 +228,11 @@ debug.get('/logs', async (c) => {
     }, 500);
   }
 });
+
+// AI Gateway probe (Worker-side)
+// GET /debug/aig-probe?model=openai/gpt-5&prompt=ping
+// Helps confirm auth headers + endpoint correctness.
+debug.route('/', aigProbe);
 
 // GET /debug/ws-test - Interactive WebSocket debug page
 debug.get('/ws-test', async (c) => {
