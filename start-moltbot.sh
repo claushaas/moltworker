@@ -190,8 +190,10 @@ if (process.env.CDP_SECRET && process.env.WORKER_URL) {
 
     const base = String(process.env.WORKER_URL).replace(/\/$/, '');
     // Do NOT log CDP_SECRET
+    // NOTE: gateway schema expects a color for profiles.
     config.browser.profiles.cloudflare = {
-        cdpUrl: `${base}/cdp?secret=${encodeURIComponent(process.env.CDP_SECRET)}`
+        cdpUrl: `${base}/cdp?secret=${encodeURIComponent(process.env.CDP_SECRET)}`,
+        color: 'cyan'
     };
 }
 
@@ -283,6 +285,15 @@ try {
     if (redacted?.models?.providers) {
         for (const k of Object.keys(redacted.models.providers)) {
             if (redacted.models.providers[k]?.apiKey) redacted.models.providers[k].apiKey = '***redacted***';
+        }
+    }
+    // Redact CDP secret if present in browser profile URLs
+    if (redacted?.browser?.profiles) {
+        for (const k of Object.keys(redacted.browser.profiles)) {
+            const p = redacted.browser.profiles[k];
+            if (p?.cdpUrl && typeof p.cdpUrl === 'string') {
+                p.cdpUrl = p.cdpUrl.replace(/secret=[^&]+/g, 'secret=***redacted***');
+            }
         }
     }
     if (redacted?.gateway?.auth?.token) redacted.gateway.auth.token = '***redacted***';
