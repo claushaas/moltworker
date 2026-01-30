@@ -96,7 +96,7 @@ sudo cat /etc/crontab 2>/dev/null || true
 
 > Meta: criar tudo em DEV primeiro, e conectar um bot Telegram novo para testes.
 
-## [ ] 1.1 Criar recursos Cloudflare (DEV)
+## [X] 1.1 Criar recursos Cloudflare (DEV)
 
 **Por quê:** recursos (D1/Vectorize/Worker) precisam existir antes de migrarmos dados.
 
@@ -197,7 +197,7 @@ sudo cat /etc/crontab 2>/dev/null || true
 
 ---
 
-## [ ] 1.3 Deploy inicial do Worker (stub) + healthcheck
+## [X] 1.3 Deploy inicial do Worker (stub) + healthcheck
 
 **Por quê:** validar wrangler + deploy + logs antes de mexer em dados.
 

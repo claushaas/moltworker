@@ -76,49 +76,69 @@ export async function ensureMoltbotGateway(sandbox: Sandbox, env: MoltbotEnv): P
     }
   }
 
-  // Start a new Moltbot gateway
-  console.log('Starting new Moltbot gateway...');
-  const envVars = await buildEnvVars(env);
-  const command = '/usr/local/bin/start-moltbot.sh';
+  const startGatewayOnce = async (): Promise<Process> => {
+    console.log('Starting new Moltbot gateway...');
+    const envVars = await buildEnvVars(env);
+    const command = '/usr/local/bin/start-moltbot.sh';
 
-  console.log('Starting process with command:', command);
-  console.log('Environment vars being passed:', Object.keys(envVars));
+    console.log('Starting process with command:', command);
+    console.log('Environment vars being passed:', Object.keys(envVars));
 
-  let process: Process;
-  try {
-    process = await sandbox.startProcess(command, {
-      env: Object.keys(envVars).length > 0 ? envVars : undefined,
-    });
-    console.log('Process started with id:', process.id, 'status:', process.status);
-  } catch (startErr) {
-    console.error('Failed to start process:', startErr);
-    throw startErr;
-  }
-
-  // Wait for the gateway to be ready
-  try {
-    console.log('[Gateway] Waiting for Moltbot gateway to be ready on port', MOLTBOT_PORT);
-    await process.waitForPort(MOLTBOT_PORT, { mode: 'tcp', timeout: STARTUP_TIMEOUT_MS });
-    console.log('[Gateway] Moltbot gateway is ready!');
-
-    const logs = await process.getLogs();
-    if (logs.stdout) console.log('[Gateway] stdout:', logs.stdout);
-    if (logs.stderr) console.log('[Gateway] stderr:', logs.stderr);
-  } catch (e) {
-    console.error('[Gateway] waitForPort failed:', e);
+    let process: Process;
     try {
+      process = await sandbox.startProcess(command, {
+        env: Object.keys(envVars).length > 0 ? envVars : undefined,
+      });
+      console.log('Process started with id:', process.id, 'status:', process.status);
+    } catch (startErr) {
+      console.error('Failed to start process:', startErr);
+      throw startErr;
+    }
+
+    // Wait for the gateway to be ready
+    try {
+      console.log('[Gateway] Waiting for Moltbot gateway to be ready on port', MOLTBOT_PORT);
+      await process.waitForPort(MOLTBOT_PORT, { mode: 'tcp', timeout: STARTUP_TIMEOUT_MS });
+      console.log('[Gateway] Moltbot gateway is ready!');
+
       const logs = await process.getLogs();
-      console.error('[Gateway] startup failed. Stderr:', logs.stderr);
-      console.error('[Gateway] startup failed. Stdout:', logs.stdout);
-      throw new Error(`Moltbot gateway failed to start. Stderr: ${logs.stderr || '(empty)'}`);
-    } catch (logErr) {
-      console.error('[Gateway] Failed to get logs:', logErr);
-      throw e;
+      if (logs.stdout) console.log('[Gateway] stdout:', logs.stdout);
+      if (logs.stderr) console.log('[Gateway] stderr:', logs.stderr);
+    } catch (e) {
+      console.error('[Gateway] waitForPort failed:', e);
+      try {
+        const logs = await process.getLogs();
+        console.error('[Gateway] startup failed. Stderr:', logs.stderr);
+        console.error('[Gateway] startup failed. Stdout:', logs.stdout);
+        throw new Error(`Moltbot gateway failed to start. Stderr: ${logs.stderr || '(empty)'}`);
+      } catch (logErr) {
+        console.error('[Gateway] Failed to get logs:', logErr);
+        throw e;
+      }
+    }
+
+    // Verify gateway is actually responding
+    console.log('[Gateway] Verifying gateway health...');
+    return process;
+  };
+
+  let lastError: unknown = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      return await startGatewayOnce();
+    } catch (e) {
+      lastError = e;
+      console.error('[Gateway] Start failed. Attempt:', attempt + 1, 'Error:', e);
+      if (attempt === 0) {
+        console.log('[Gateway] Resetting sandbox and retrying once...');
+        try {
+          await sandbox.destroy();
+        } catch (destroyError) {
+          console.log('Failed to destroy sandbox during retry (continuing):', destroyError);
+        }
+      }
     }
   }
 
-  // Verify gateway is actually responding
-  console.log('[Gateway] Verifying gateway health...');
-  
-  return process;
+  throw lastError;
 }

@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import type { Context } from 'hono';
 import type { AppEnv } from '../types';
 import { ensureMoltbotGateway, findExistingMoltbotProcess } from '../gateway';
 import { aigProbe } from './aig-probe';
@@ -130,24 +131,15 @@ debug.get('/cli', async (c) => {
   const cmd = c.req.query('cmd') || 'clawdbot --help';
   
   try {
-    const proc = await sandbox.startProcess(cmd);
-    
-    // Wait longer for command to complete
-    let attempts = 0;
-    while (attempts < 30) {
-      await new Promise(r => setTimeout(r, 500));
-      if (proc.status !== 'running') break;
-      attempts++;
-    }
-
-    const logs = await proc.getLogs();
+    const result = await sandbox.exec(cmd, { timeout: 20_000 });
     return c.json({
-      command: cmd,
-      status: proc.status,
-      exitCode: proc.exitCode,
-      attempts,
-      stdout: logs.stdout || '',
-      stderr: logs.stderr || '',
+      command: result.command,
+      status: result.success ? 'completed' : 'failed',
+      exitCode: result.exitCode,
+      stdout: result.stdout || '',
+      stderr: result.stderr || '',
+      durationMs: result.duration,
+      timestamp: result.timestamp,
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -180,9 +172,7 @@ debug.post('/restart-gateway', async (c) => {
   });
 });
 
-// POST /debug/reset-sandbox - Fully destroy and recreate the sandbox container.
-// Useful if the sandbox shell dies and commands can't be executed.
-debug.post('/reset-sandbox', async (c) => {
+async function resetSandboxAndStart(c: Context<AppEnv>) {
   const sandbox = c.get('sandbox');
   try {
     await sandbox.destroy();
@@ -191,12 +181,25 @@ debug.post('/reset-sandbox', async (c) => {
   }
 
   const proc = await ensureMoltbotGateway(sandbox, c.env);
-  return c.json({
+  return {
     ok: true,
     restarted: true,
     processId: proc.id,
     status: proc.status,
-  });
+  };
+}
+
+// POST /debug/reset-sandbox - Fully destroy and recreate the sandbox container.
+// Useful if the sandbox shell dies and commands can't be executed.
+debug.post('/reset-sandbox', async (c) => {
+  const payload = await resetSandboxAndStart(c);
+  return c.json(payload);
+});
+
+// GET /debug/reset-sandbox - Convenience alias for manual use
+debug.get('/reset-sandbox', async (c) => {
+  const payload = await resetSandboxAndStart(c);
+  return c.json(payload);
 });
 
 // POST /debug/kill - Kill runaway processes inside the sandbox.
