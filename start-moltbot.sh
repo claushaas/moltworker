@@ -318,6 +318,10 @@ echo "Gateway will be available on port 18789"
 rm -f /tmp/clawdbot-gateway.lock 2>/dev/null || true
 rm -f "$CONFIG_DIR/gateway.lock" 2>/dev/null || true
 
+# Auto-fix config schema issues (best-effort). This prevents startup from failing
+# when the upstream schema adds required fields (e.g., browser profile color).
+clawdbot doctor --fix >/dev/null 2>&1 || true
+
 BIND_MODE="lan"
 echo "Dev mode: ${CLAWDBOT_DEV_MODE:-false}, Bind mode: $BIND_MODE"
 
