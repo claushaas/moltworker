@@ -193,7 +193,8 @@ if (process.env.CDP_SECRET && process.env.WORKER_URL) {
     // NOTE: gateway schema expects a color for profiles.
     config.browser.profiles.cloudflare = {
         cdpUrl: `${base}/cdp?secret=${encodeURIComponent(process.env.CDP_SECRET)}`,
-        color: 'cyan'
+        // Must be hex (RRGGBB) per current schema
+        color: '00FFFF'
     };
 }
 
