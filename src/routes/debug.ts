@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import type { Context } from 'hono';
 import type { AppEnv } from '../types';
-import { ensureMoltbotGateway, findExistingMoltbotProcess } from '../gateway';
+import { ensureMoltbotGateway, findExistingMoltbotProcess, buildEnvVars } from '../gateway';
 import { aigProbe } from './aig-probe';
 
 /**
@@ -131,7 +131,11 @@ debug.get('/cli', async (c) => {
   const cmd = c.req.query('cmd') || 'clawdbot --help';
   
   try {
-    const result = await sandbox.exec(cmd, { timeout: 20_000 });
+    const envVars = await buildEnvVars(c.env);
+    const result = await sandbox.exec(cmd, {
+      timeout: 20_000,
+      env: Object.keys(envVars).length > 0 ? envVars : undefined,
+    });
     return c.json({
       command: result.command,
       status: result.success ? 'completed' : 'failed',
@@ -443,6 +447,7 @@ debug.get('/env', async (c) => {
     bind_mode: c.env.CLAWDBOT_BIND_MODE,
     cf_access_team_domain: c.env.CF_ACCESS_TEAM_DOMAIN,
     has_cf_access_aud: !!c.env.CF_ACCESS_AUD,
+    has_memory_api_secret: !!c.env.MEMORY_API_SECRET,
   });
 });
 

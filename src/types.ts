@@ -36,6 +36,10 @@ export interface MoltbotEnv {
   BROWSER?: Fetcher;
   CDP_SECRET?: string; // Shared secret for CDP endpoint authentication
   WORKER_URL?: string; // Public URL of the worker (for CDP endpoint)
+  // Memory plugin (D1 + Vectorize) API auth + config
+  MEMORY_API_URL?: string; // Optional override for memory API base URL
+  MEMORY_API_SECRET?: string; // Shared secret for memory plugin HMAC auth
+  MEMORY_EMBEDDING_MODEL?: string; // Optional override for embeddings model
 }
 
 /**

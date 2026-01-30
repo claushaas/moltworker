@@ -42,6 +42,8 @@ export async function buildEnvVars(env: MoltbotEnv): Promise<Record<string, stri
 
   if (env.CDP_SECRET) envVars.CDP_SECRET = env.CDP_SECRET;
   if (env.WORKER_URL) envVars.WORKER_URL = env.WORKER_URL;
+  if (env.MEMORY_API_URL) envVars.MEMORY_API_URL = env.MEMORY_API_URL;
+  if (env.MEMORY_API_SECRET) envVars.MEMORY_API_SECRET = env.MEMORY_API_SECRET;
 
   return envVars;
 }

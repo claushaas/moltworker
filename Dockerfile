@@ -27,8 +27,8 @@ RUN mkdir -p /root/.clawdbot \
     && mkdir -p /root/clawd/skills
 
 # Copy startup script
-# Build cache bust: 2026-01-30-v27-telegram-shell
-ARG CACHE_BUST=2026-01-30-v27-telegram-shell
+# Build cache bust: 2026-01-30-v28-memory-api-url
+ARG CACHE_BUST=2026-01-30-v28-memory-api-url
 RUN echo "Cache bust: ${CACHE_BUST}" > /dev/null
 COPY start-moltbot.sh /usr/local/bin/start-moltbot.sh
 RUN chmod +x /usr/local/bin/start-moltbot.sh

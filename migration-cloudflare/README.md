@@ -1,3 +1,4 @@
+<!-- markdownlint-disable -->
 # Migração Cloudflare-first (sem VPS) — Plano passo a passo (ultra detalhado)
 
 > Objetivo: desligar a VPS, migrar *memória (SQLite)* + *entrada de canais* para Cloudflare (**Workers + D1 + Vectorize**), mantendo o **Mac mini** apenas como executor quando necessário (via **cloudflared/Zero Trust**).

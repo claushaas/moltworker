@@ -133,6 +133,12 @@ fi
 # ============================================================
 # UPDATE CONFIG FROM ENVIRONMENT VARIABLES
 # ============================================================
+# Ensure memory-d1 plugin deps are installed (TypeBox)
+if [ -f "/root/clawd/skills/memory-d1/package.json" ] && [ ! -d "/root/clawd/skills/memory-d1/node_modules/@sinclair/typebox" ]; then
+    echo "Installing memory-d1 plugin dependencies..."
+    (cd /root/clawd/skills/memory-d1 && npm install --omit=dev --no-audit --no-fund) || true
+fi
+
 node << 'EOFNODE'
 const fs = require('fs');
 
@@ -222,6 +228,53 @@ if (process.env.SLACK_BOT_TOKEN && process.env.SLACK_APP_TOKEN) {
     config.channels.slack.botToken = process.env.SLACK_BOT_TOKEN;
     config.channels.slack.appToken = process.env.SLACK_APP_TOKEN;
     config.channels.slack.enabled = true;
+}
+
+// Memory plugin (D1 + Vectorize) configuration
+const memoryApiUrlOverride = process.env.MEMORY_API_URL || '';
+const memoryApiUrl =
+    memoryApiUrlOverride ||
+    (process.env.WORKER_URL
+        ? `${String(process.env.WORKER_URL).replace(/\/$/, '')}/memory`
+        : '');
+if (process.env.MEMORY_API_SECRET && memoryApiUrl) {
+    config.plugins = config.plugins || {};
+    config.plugins.load = config.plugins.load || {};
+    config.plugins.load.paths = config.plugins.load.paths || [];
+
+    const memoryPluginPath = '/root/clawd/skills/memory-d1';
+    if (!config.plugins.load.paths.includes(memoryPluginPath)) {
+        config.plugins.load.paths.push(memoryPluginPath);
+    }
+
+    config.plugins.slots = config.plugins.slots || {};
+    config.plugins.slots.memory = 'memory-d1';
+
+    const base = memoryApiUrl;
+    const autoRecall = process.env.MEMORY_AUTO_RECALL
+        ? process.env.MEMORY_AUTO_RECALL === 'true'
+        : true;
+    const autoCapture = process.env.MEMORY_AUTO_CAPTURE
+        ? process.env.MEMORY_AUTO_CAPTURE === 'true'
+        : true;
+    const recallLimit = Number.isFinite(Number(process.env.MEMORY_RECALL_LIMIT))
+        ? Number(process.env.MEMORY_RECALL_LIMIT)
+        : 5;
+    const minScore = Number.isFinite(Number(process.env.MEMORY_MIN_SCORE))
+        ? Number(process.env.MEMORY_MIN_SCORE)
+        : 0.3;
+
+    config.plugins.entries = config.plugins.entries || {};
+    config.plugins.entries['memory-d1'] = {
+        enabled: true,
+        config: {
+            memoryApiUrl: base,
+            autoRecall,
+            autoCapture,
+            recallLimit,
+            minScore,
+        },
+    };
 }
 
 // Provider configuration
