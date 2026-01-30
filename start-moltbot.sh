@@ -211,6 +211,16 @@ if (process.env.TELEGRAM_BOT_TOKEN) {
     config.channels.telegram.enabled = true;
     config.channels.telegram.dm = config.channels.telegram.dm || {};
     config.channels.telegram.dmPolicy = process.env.TELEGRAM_DM_POLICY || 'pairing';
+    if (process.env.TELEGRAM_ALLOW_FROM) {
+        const raw = String(process.env.TELEGRAM_ALLOW_FROM);
+        const allow = raw.split(',').map((v) => v.trim()).filter(Boolean);
+        if (allow.length > 0) {
+            config.channels.telegram.allowFrom = allow.map((v) => {
+                const num = Number(v);
+                return Number.isFinite(num) ? num : v;
+            });
+        }
+    }
 }
 
 // Discord configuration

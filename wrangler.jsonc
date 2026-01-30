@@ -109,6 +109,7 @@
   // - CF_ACCESS_TEAM_DOMAIN: Cloudflare Access team domain
   // - CF_ACCESS_AUD: Cloudflare Access application audience
   // - TELEGRAM_BOT_TOKEN: (optional) Telegram bot token
+  // - TELEGRAM_ALLOW_FROM: (optional) Comma-separated allowlist of Telegram user IDs
   // - DISCORD_BOT_TOKEN: (optional) Discord bot token
   // - SLACK_BOT_TOKEN: (optional) Slack bot token
   // - SLACK_APP_TOKEN: (optional) Slack app token
