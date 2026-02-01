@@ -21,9 +21,38 @@ CONFIG_FILE="$CONFIG_DIR/clawdbot.json"
 TEMPLATE_DIR="/root/.clawdbot-templates"
 TEMPLATE_FILE="$TEMPLATE_DIR/moltbot.json.template"
 BACKUP_DIR="/data/moltbot"
+SHERPA_RUNTIME_DIR="/root/.clawdbot/tools/sherpa-onnx-tts/runtime"
+SHERPA_MODEL_DIR="/root/.clawdbot/tools/sherpa-onnx-tts/models/vits-piper-pt_BR-edresson-low"
 
 echo "Config directory: $CONFIG_DIR"
 echo "Backup directory: $BACKUP_DIR"
+
+# Expose sherpa-onnx-tts runtime/model to skills
+export SHERPA_ONNX_RUNTIME_DIR="$SHERPA_RUNTIME_DIR"
+export SHERPA_ONNX_MODEL_DIR="$SHERPA_MODEL_DIR"
+
+# Install sherpa-onnx-tts runtime + PT-BR model if missing
+if [ ! -x "$SHERPA_ONNX_RUNTIME_DIR/bin/sherpa-onnx-tts" ]; then
+    echo "Downloading sherpa-onnx runtime (linux-x64)..."
+    mkdir -p "$SHERPA_ONNX_RUNTIME_DIR"
+    curl -fsSL https://github.com/k2-fsa/sherpa-onnx/releases/download/v1.12.23/sherpa-onnx-v1.12.23-linux-x64-shared.tar.bz2 -o /tmp/sherpa-onnx-runtime.tar.bz2
+    tar -xjf /tmp/sherpa-onnx-runtime.tar.bz2 -C "$SHERPA_ONNX_RUNTIME_DIR" --strip-components=1
+    rm /tmp/sherpa-onnx-runtime.tar.bz2
+fi
+
+# Install bird CLI if missing (X/Twitter)
+if ! command -v bird >/dev/null 2>&1; then
+    echo "Installing bird CLI via npm..."
+    npm install -g @steipete/bird >/dev/null 2>&1 || true
+fi
+
+if [ ! -d "$SHERPA_ONNX_MODEL_DIR" ]; then
+    echo "Downloading sherpa-onnx PT-BR model (edresson-low)..."
+    mkdir -p "$(dirname "$SHERPA_ONNX_MODEL_DIR")"
+    curl -fsSL https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-pt_BR-edresson-low.tar.bz2 -o /tmp/sherpa-onnx-model.tar.bz2
+    tar -xjf /tmp/sherpa-onnx-model.tar.bz2 -C "$(dirname "$SHERPA_ONNX_MODEL_DIR")"
+    rm /tmp/sherpa-onnx-model.tar.bz2
+fi
 
 # Create config directory
 mkdir -p "$CONFIG_DIR"
@@ -158,6 +187,8 @@ config.agents.defaults = config.agents.defaults || {};
 config.agents.defaults.model = config.agents.defaults.model || {};
 config.gateway = config.gateway || {};
 config.channels = config.channels || {};
+config.skills = config.skills || {};
+config.skills.entries = config.skills.entries || {};
 
 // Memory behavior: prefer D1 + Vectorize, avoid local file-based memory
 config.agents.defaults.systemPrompt = [
@@ -235,6 +266,15 @@ if (process.env.TELEGRAM_BOT_TOKEN) {
         }
     }
 }
+
+// sherpa-onnx-tts configuration (local offline TTS)
+const sherpaRuntimeDir = "/root/.clawdbot/tools/sherpa-onnx-tts/runtime";
+const sherpaModelDir = "/root/.clawdbot/tools/sherpa-onnx-tts/models/vits-piper-pt_BR-edresson-low";
+config.skills.entries['sherpa-onnx-tts'] = config.skills.entries['sherpa-onnx-tts'] || {};
+config.skills.entries['sherpa-onnx-tts'].env = {
+    SHERPA_ONNX_RUNTIME_DIR: sherpaRuntimeDir,
+    SHERPA_ONNX_MODEL_DIR: sherpaModelDir,
+};
 
 // Discord configuration
 if (process.env.DISCORD_BOT_TOKEN) {

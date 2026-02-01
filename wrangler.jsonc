@@ -6,7 +6,8 @@
 
   "vars": {
     "DEBUG_ROUTES": "true",
-    "WORKER_URL": "https://bb.claushaas.dev"
+    "WORKER_URL": "https://bb.claushaas.dev",
+    "ACCESS_BYPASS_HOSTS": "bb-node.claushaas.dev"
   },
   "compatibility_flags": ["nodejs_compat"],
   "observability": {

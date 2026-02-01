@@ -51,6 +51,32 @@ export function createAccessMiddleware(options: AccessMiddlewareOptions) {
     const teamDomain = c.env.CF_ACCESS_TEAM_DOMAIN;
     const expectedAud = c.env.CF_ACCESS_AUD;
 
+    // Host-based bypass for routes handled outside Cloudflare Access
+    // (e.g., dedicated node hostnames)
+    const bypassHosts = (c.env.ACCESS_BYPASS_HOSTS || '')
+      .split(',')
+      .map((host) => host.trim())
+      .filter(Boolean);
+    if (bypassHosts.length > 0) {
+      const hostname = new URL(c.req.url).hostname;
+      if (bypassHosts.includes(hostname)) {
+        c.set('accessUser', { email: 'access-bypass', name: 'Access Bypass' });
+        return next();
+      }
+    }
+
+    // Token-only bypass for trusted gateway clients (e.g., nodes)
+    const gatewayToken = c.env.MOLTBOT_GATEWAY_TOKEN;
+    if (gatewayToken) {
+      const authHeader = c.req.header('Authorization') || '';
+      const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice('Bearer '.length) : '';
+      const urlToken = new URL(c.req.url).searchParams.get('token');
+      if (bearer === gatewayToken || urlToken === gatewayToken) {
+        c.set('accessUser', { email: 'gateway-token', name: 'Gateway Token' });
+        return next();
+      }
+    }
+
     // Check if CF Access is configured
     if (!teamDomain || !expectedAud) {
       if (type === 'json') {
