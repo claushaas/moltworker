@@ -1,4 +1,5 @@
 import type { Sandbox } from '@cloudflare/sandbox';
+import type { D1Database, VectorizeIndex } from '@cloudflare/workers-types';
 import type { SecretsStoreSecret } from './secrets';
 
 /**
@@ -10,6 +11,9 @@ export interface MoltbotEnv {
   MOLTBOT_BUCKET: R2Bucket; // R2 bucket for persistent storage
   // OpenAI direct configuration (preferred for simplicity)
   OPENAI_API_KEY?: string | SecretsStoreSecret;
+  // Cloudflare AI Gateway (routes to OpenAI/Anthropic)
+  AI_GATEWAY_API_KEY?: string;
+  AI_GATEWAY_BASE_URL?: string;
   // Legacy direct provider configuration (fallback)
   ANTHROPIC_API_KEY?: string;
   ANTHROPIC_BASE_URL?: string;
@@ -43,6 +47,8 @@ export interface MoltbotEnv {
   MEMORY_API_URL?: string; // Optional override for memory API base URL
   MEMORY_API_SECRET?: string; // Shared secret for memory plugin HMAC auth
   MEMORY_EMBEDDING_MODEL?: string; // Optional override for embeddings model
+  DB?: D1Database;
+  VECTORIZE?: VectorizeIndex;
 }
 
 /**

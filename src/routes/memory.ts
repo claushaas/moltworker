@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import type { AppEnv } from '../types';
+import type { D1Database, VectorizeIndex } from '@cloudflare/workers-types';
 import { resolveSecret } from '../secrets';
 
 const memory = new Hono<AppEnv>();
@@ -16,6 +17,19 @@ type MemoryItem = {
   source?: string | null;
   tags?: string | null;
 };
+
+type VectorizeMatch = {
+  id?: string;
+  score?: number;
+  metadata?: Record<string, unknown>;
+};
+
+function requireMemoryBindings(env: AppEnv['Bindings']): { db: D1Database; vectorize: VectorizeIndex } {
+  if (!env.DB || !env.VECTORIZE) {
+    throw new Error('Memory bindings (DB, VECTORIZE) are not configured');
+  }
+  return { db: env.DB, vectorize: env.VECTORIZE };
+}
 
 function timingSafeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
@@ -93,8 +107,9 @@ async function embedText(env: AppEnv['Bindings'], text: string): Promise<number[
 
 async function fetchMemoryItems(env: AppEnv['Bindings'], ids: string[]): Promise<Map<string, MemoryItem>> {
   if (ids.length === 0) return new Map();
+  const { db } = requireMemoryBindings(env);
   const placeholders = ids.map(() => '?').join(',');
-  const stmt = env.DB.prepare(
+  const stmt = db.prepare(
     `SELECT id, text, category, importance, created_at, source, tags FROM memory_items WHERE id IN (${placeholders})`,
   );
   const result = await stmt.bind(...ids).all<{
@@ -147,24 +162,25 @@ memory.post('/store', async (c) => {
   const tags = Array.isArray(payload.tags) ? JSON.stringify(payload.tags) : null;
 
   try {
+    const { db, vectorize } = requireMemoryBindings(c.env);
     const vector = await embedText(c.env, text);
     const id = crypto.randomUUID();
     const createdAt = Date.now();
 
-    const duplicateCheck = await c.env.VECTORIZE.query(vector, {
+    const duplicateCheck = await vectorize.query(vector, {
       topK: 1,
       returnMetadata: true,
-    });
+    }) as { matches?: VectorizeMatch[] };
     const top = duplicateCheck.matches?.[0];
     if (top && typeof top.score === 'number' && top.score >= 0.95 && top.id) {
       return c.json({ status: 'duplicate', id: top.id, score: top.score });
     }
 
-    await c.env.DB.prepare(
+    await db.prepare(
       'INSERT INTO memory_items (id, text, category, importance, created_at, source, tags) VALUES (?, ?, ?, ?, ?, ?, ?)',
     ).bind(id, text, category, importance, createdAt, source, tags).run();
 
-    await c.env.VECTORIZE.upsert([
+    await vectorize.upsert([
       {
         id,
         values: vector,
@@ -206,18 +222,21 @@ memory.post('/recall', async (c) => {
   const minScore = typeof payload.minScore === 'number' ? payload.minScore : 0.3;
 
   try {
+    const { vectorize } = requireMemoryBindings(c.env);
     const vector = await embedText(c.env, query);
-    const matches = await c.env.VECTORIZE.query(vector, {
+    const matches = await vectorize.query(vector, {
       topK: limit,
       returnMetadata: true,
-    });
-    const ids = (matches.matches || []).map((m) => m.id).filter(Boolean) as string[];
+    }) as { matches?: VectorizeMatch[] };
+    const ids = (matches.matches || []).map((m: VectorizeMatch) => m.id).filter(Boolean) as string[];
     const itemsById = await fetchMemoryItems(c.env, ids);
 
     const results = (matches.matches || [])
-      .filter((m) => typeof m.score === 'number' && m.score >= minScore)
-      .map((m) => {
-        const item = itemsById.get(m.id);
+      .filter((m: VectorizeMatch) => typeof m.score === 'number' && m.score >= minScore)
+      .map((m: VectorizeMatch) => {
+        const matchId = m.id;
+        if (!matchId) return null;
+        const item = itemsById.get(matchId);
         if (!item) return null;
         return {
           id: item.id,
@@ -254,8 +273,9 @@ memory.post('/forget', async (c) => {
   const { id } = payload;
   if (id) {
     try {
-      await c.env.DB.prepare('DELETE FROM memory_items WHERE id = ?').bind(id).run();
-      await c.env.VECTORIZE.deleteByIds([id]);
+      const { db, vectorize } = requireMemoryBindings(c.env);
+      await db.prepare('DELETE FROM memory_items WHERE id = ?').bind(id).run();
+      await vectorize.deleteByIds([id]);
       return c.json({ status: 'deleted', id });
     } catch (err) {
       return c.json({ error: String(err) }, 500);
@@ -271,30 +291,34 @@ memory.post('/forget', async (c) => {
   const minScore = typeof payload.minScore === 'number' ? payload.minScore : 0.7;
 
   try {
+    const { db, vectorize } = requireMemoryBindings(c.env);
     const vector = await embedText(c.env, query);
-    const matches = await c.env.VECTORIZE.query(vector, {
+    const matches = await vectorize.query(vector, {
       topK: limit,
       returnMetadata: true,
-    });
+    }) as { matches?: VectorizeMatch[] };
     const filtered = (matches.matches || [])
-      .filter((m) => typeof m.score === 'number' && m.score >= minScore);
+      .filter((m: VectorizeMatch) => typeof m.score === 'number' && m.score >= minScore);
 
     if (filtered.length === 0) {
       return c.json({ status: 'not_found', candidates: [] });
     }
 
-    if (filtered.length === 1 && filtered[0].score >= 0.9 && filtered[0].id) {
-      const deleteId = filtered[0].id;
-      await c.env.DB.prepare('DELETE FROM memory_items WHERE id = ?').bind(deleteId).run();
-      await c.env.VECTORIZE.deleteByIds([deleteId]);
+    const soleMatch = filtered[0];
+    if (filtered.length === 1 && soleMatch && typeof soleMatch.score === 'number' && soleMatch.score >= 0.9 && soleMatch.id) {
+      const deleteId = soleMatch.id;
+      await db.prepare('DELETE FROM memory_items WHERE id = ?').bind(deleteId).run();
+      await vectorize.deleteByIds([deleteId]);
       return c.json({ status: 'deleted', id: deleteId });
     }
 
-    const ids = filtered.map((m) => m.id).filter(Boolean) as string[];
+    const ids = filtered.map((m: VectorizeMatch) => m.id).filter(Boolean) as string[];
     const itemsById = await fetchMemoryItems(c.env, ids);
     const candidates = filtered
-      .map((m) => {
-        const item = itemsById.get(m.id);
+      .map((m: VectorizeMatch) => {
+        const matchId = m.id;
+        if (!matchId) return null;
+        const item = itemsById.get(matchId);
         if (!item) return null;
         return {
           id: item.id,

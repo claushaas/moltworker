@@ -31,7 +31,7 @@ export async function buildEnvVars(env: MoltbotEnv): Promise<Record<string, stri
   if (!envVars.ANTHROPIC_API_KEY && env.ANTHROPIC_API_KEY) {
     envVars.ANTHROPIC_API_KEY = env.ANTHROPIC_API_KEY;
   }
-  if (!envVars.OPENAI_API_KEY && env.OPENAI_API_KEY) {
+  if (!envVars.OPENAI_API_KEY && typeof env.OPENAI_API_KEY === 'string') {
     envVars.OPENAI_API_KEY = env.OPENAI_API_KEY;
   }
 
