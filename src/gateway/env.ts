@@ -10,9 +10,22 @@ import { resolveSecret } from '../secrets';
 export async function buildEnvVars(env: MoltbotEnv): Promise<Record<string, string>> {
   const envVars: Record<string, string> = {};
 
+  // Normalize the base URL by removing trailing slashes
+  const normalizedBaseUrl = env.AI_GATEWAY_BASE_URL?.replace(/\/+$/, '');
+  const isOpenAIGateway = normalizedBaseUrl?.endsWith('/openai');
+
+  // AI Gateway vars take precedence
+  // Map to the appropriate provider env var based on the gateway endpoint
+  if (env.AI_GATEWAY_API_KEY) {
+    if (isOpenAIGateway) {
+      envVars.OPENAI_API_KEY = env.AI_GATEWAY_API_KEY;
+    } else {
+      envVars.ANTHROPIC_API_KEY = env.AI_GATEWAY_API_KEY;
+    }
+  }
   // Resolve OpenAI key from either Secrets Store binding or plain string
   const openaiKey = await resolveSecret(env.OPENAI_API_KEY);
-  if (openaiKey) envVars.OPENAI_API_KEY = openaiKey;
+  if (!envVars.OPENAI_API_KEY && openaiKey) envVars.OPENAI_API_KEY = openaiKey;
 
   // Fall back to direct provider keys
   if (!envVars.ANTHROPIC_API_KEY && env.ANTHROPIC_API_KEY) {
@@ -22,9 +35,16 @@ export async function buildEnvVars(env: MoltbotEnv): Promise<Record<string, stri
     envVars.OPENAI_API_KEY = env.OPENAI_API_KEY;
   }
 
-  // Leave OPENAI_BASE_URL unset to use the OpenAI default (api.openai.com).
-  // Keep optional Anthropic base URL for legacy fallback.
-  if (env.ANTHROPIC_BASE_URL) {
+  // Pass base URL (used by start-moltbot.sh to determine provider)
+  if (normalizedBaseUrl) {
+    envVars.AI_GATEWAY_BASE_URL = normalizedBaseUrl;
+    // Also set the provider-specific base URL env var
+    if (isOpenAIGateway) {
+      envVars.OPENAI_BASE_URL = normalizedBaseUrl;
+    } else {
+      envVars.ANTHROPIC_BASE_URL = normalizedBaseUrl;
+    }
+  } else if (env.ANTHROPIC_BASE_URL) {
     envVars.ANTHROPIC_BASE_URL = env.ANTHROPIC_BASE_URL;
   }
 
