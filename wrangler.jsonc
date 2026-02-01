@@ -13,6 +13,18 @@
   "observability": {
     "enabled": true,
   },
+  "routes": [
+    {
+      "pattern": "bb.claushaas.dev",
+      "zone_name": "claushaas.dev",
+      "custom_domain": true
+    },
+    {
+      "pattern": "bb-node.claushaas.dev",
+      "zone_name": "claushaas.dev",
+      "custom_domain": true
+    }
+  ],
   // Static assets for admin UI (built by vite)
   "assets": {
     "directory": "./dist/client",
